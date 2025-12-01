@@ -11,12 +11,9 @@ admin_user = settings.KEYCLOAK_ADMIN_USER
 admin_password = settings.KEYCLOAK_ADMIN_PASSWORD
 
 
-from fastapi.openapi.models import OAuthFlows as OAuthFlowsModel, OAuthFlowPassword
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.KEYCLOAK_SERVER_URL}/realms/{settings.KEYCLOAK_REALM}/protocol/openid-connect/token"
-)
+oauth2_scheme = HTTPBearer()
 # 🔹 Admin client (for creating users, assigning groups, etc.)
 keycloak_admin = KeycloakAdmin(
     server_url=f"{server_url}/",
@@ -37,9 +34,13 @@ keycloak_openid = KeycloakOpenID(
 
 
 
-def get_userinfo_from_keycloak(token: str):
+def get_userinfo_from_keycloak(credentials: HTTPAuthorizationCredentials):
     try:
-        userinfo = keycloak_openid.userinfo(token)
+        userinfo = keycloak_openid.userinfo(credentials.credentials)
         return userinfo
     except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")    
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+def extract_token(credentials: HTTPAuthorizationCredentials) -> str:
+    """Extract token string from HTTPAuthorizationCredentials"""
+    return credentials.credentials    

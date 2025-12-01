@@ -19,8 +19,12 @@ class Settings(BaseSettings):
     AWS_HTTPS:str
     CPL_VSIL_CURL_USE_S3:str
     AWS_NO_SIGN_REQUEST:str
+    AWS_S3_PROTOCOL:str
     
-    
+    # Airflow config
+    AIRFLOW_USER_USERNAME:str
+    AIRFLOW_USER_PASSWORD:str
+    AIRFLOW_API_BASE_URL:str
     
     class Config:
         env_file = ".env"

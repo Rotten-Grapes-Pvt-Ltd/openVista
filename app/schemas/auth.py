@@ -30,3 +30,4 @@ class NewUserAfterSignUp(BaseModel):
     
 class SignupResponse(NewUserAfterSignUp):
     id: int
+    credits_allocated : int

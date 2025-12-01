@@ -50,5 +50,7 @@ class Records(Base):
     temporal_end = Column(String)
     user_id =Column(Integer, ForeignKey("users.id"), nullable=True)
     extra_props = Column(jsonb_type, nullable=True, default=dict)
+    geometry = Column(Geometry("GEOMETRY"),nullable=True)
+    identifier = Column(String, nullable=False)
     
     user = relationship("User", back_populates="records")

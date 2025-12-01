@@ -12,3 +12,4 @@ class FileMimeType(str, Enum):
     shapefile = "application/octet-stream"
     zip = "application/zip"
     pdf = "application/pdf"
+    

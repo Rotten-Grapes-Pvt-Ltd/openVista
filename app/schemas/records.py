@@ -10,5 +10,7 @@ class AddRecord(BaseModel):
     temporal_start : str | None = None
     temporal_end : str | None = None
     extra_props : dict | None = None
+    geometry : dict | None = None
+    identifier : str | None = None
     
     

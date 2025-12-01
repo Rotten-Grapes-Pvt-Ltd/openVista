@@ -137,6 +137,15 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+    shm_size: 2gb
+    env_file :
+     - .env
     environment:
       - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${DB_USERNAME}:${DB_PASSWORD}@postgres/${DB_NAME}?options=-csearch_path%3Dairflow
@@ -175,6 +184,15 @@ services:
         condition: service_healthy
       airflow-webserver:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+    shm_size: 2gb
+    env_file :
+     - .env
     environment:
       - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${DB_USERNAME}:${DB_PASSWORD}@postgres/${DB_NAME}?options=-csearch_path%3Dairflow
@@ -196,12 +214,22 @@ services:
   airflow-worker:
     build: ./docker/airflow
     command: celery worker
+    mem_limit: 12g
     entrypoint: [ "/usr/bin/dumb-init", "--", "/entrypoint" ]
     depends_on:
       postgres:
         condition: service_healthy
       airflow-scheduler:
         condition: service_started
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 12G
+    #     reservations:
+    #       memory: 4G
+    # shm_size: 12gb
+    env_file :
+     - .env
     environment:
       - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${DB_USERNAME}:${DB_PASSWORD}@postgres/${DB_NAME}?options=-csearch_path%3Dairflow
@@ -229,6 +257,8 @@ services:
         mkdir -p /sources/logs /sources/dags /sources/plugins
         chown -R "${AIRFLOW_UID}:0" /sources/{logs,dags,plugins}
         exec /entrypoint airflow version
+    env_file :
+     - .env
     environment:
       - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${DB_USERNAME}:${DB_PASSWORD}@postgres/${DB_NAME}?options=-csearch_path%3Dairflow

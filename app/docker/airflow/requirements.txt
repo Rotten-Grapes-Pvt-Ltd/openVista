@@ -1,2 +1,27 @@
-geopandas
-psycopg2-binary
+# Core geospatial
+rasterio
+rioxarray
+xarray
+numpy
+scipy
+
+# Cloud-native processing
+xarray-spatial
+fsspec
+s3fs
+dask
+
+# MinIO / S3 access
+boto3
+botocore
+
+# GDAL (Python bindings)
+# IMPORTANT: GDAL version MUST match system GDAL library.
+# For most Airflow + Debian base images, 3.6.2 works.
+GDAL==3.6.2
+
+# Fast HTTP client (for TiTiler validation, optional)
+httpx
+
+# Utility
+pandas

@@ -7,14 +7,18 @@ from uuid import uuid4
 from config import settings
 from core.keycloak import keycloak_openid
 from models.database import get_db
+from core.deps import get_user_by_kc_id
 from sqlalchemy.ext.asyncio import AsyncSession
 import httpx
 import urllib.parse
 from fastapi import Request
 from schemas.records import AddRecord
 from models.assets import Records
-
+from geoalchemy2.shape import from_shape
+from shapely.geometry import shape
 from core.keycloak import oauth2_scheme
+from core.storage import get_object_size
+from core.analysis import deduct_credits
 router = APIRouter( tags=["rasters"])
 
 
@@ -34,7 +38,7 @@ async def get_info(
     request: Request,
     file_path: str | None = Query(None, description="Path of the raster file"),
     stats : bool = Query(False, description="Get raster statistics"),
-    token: str = Depends(oauth2_scheme),
+    credentials = Depends(oauth2_scheme),
     session = Depends(get_db),
     
 ):
@@ -47,13 +51,14 @@ async def get_info(
 
     try:
         # httpx async code
+        token = credentials.credentials
         userinfo = keycloak_openid.userinfo(token)
         base = str(request.base_url).rstrip("/")
-        encoded = urllib.parse.quote(f"s3://{file_path}", safe="")
+        encoded = urllib.parse.quote(file_path, safe="")
         
         result = {}
         async with httpx.AsyncClient() as client:
-            r = await client.get(f'{base}/cog/info?url={encoded}')
+            r = await client.get(f'{base}/cog/info.geojson?url={encoded}')
             result['info'] = r.json()
         if stats:
             async with httpx.AsyncClient() as client:
@@ -65,42 +70,49 @@ async def get_info(
 
 
 @router.post("/add_record")
-async def add_record(records:AddRecord,token: str = Depends(oauth2_scheme),session: AsyncSession = Depends(get_db)):
+async def add_record(records:AddRecord, credentials = Depends(oauth2_scheme), session: AsyncSession = Depends(get_db)):
     
     """
     Add new Record based on data 
     """
     
-    try:
-        userinfo = keycloak_openid.userinfo(token)
-        kc_user_id = userinfo['sub']
+    # try:
+    token = credentials.credentials
+    userinfo = keycloak_openid.userinfo(token)
+    kc_user_id = userinfo['sub']
+    
+    
+    user = await get_user_by_kc_id(session, kc_user_id)
+    
+    
+    
+    # Convert GeoJSON to WKT if geometry is provided
+    geometry_wkt = None
+    if records.geometry:
         
-        # Find the user by keycloak ID
-        from sqlalchemy import select
-        from models.auth import User
-        
-        result = await session.execute(select(User).where(User.kc_user_id == kc_user_id))
-        user = result.scalar_one_or_none()
-        
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        new_record = Records(
-            title=records.title,
-            description=records.description,
-            tags=records.tags,
-            bbox=records.bbox,
-            keywords=records.keywords,
-            temporal_start=records.temporal_start,
-            temporal_end=records.temporal_end,
-            user_id=user.id,
-            extra_props=records.extra_props,
-            record_type='raster'
-        )
-        session.add(new_record)
-        await session.commit()
-        
-        return {"message": str(new_record.id)}
-    except Exception as e:
-        await session.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        geometry_wkt = from_shape(shape(records.geometry))
+    
+    asset_size = get_object_size(records.identifier)
+    records.extra_props['asset_size'] = asset_size
+    new_record = Records(
+        title=records.title,
+        description=records.description,
+        tags=records.tags,
+        bbox=records.bbox,
+        keywords=records.keywords,
+        temporal_start=records.temporal_start,
+        temporal_end=records.temporal_end,
+        user_id=user.id,
+        extra_props=records.extra_props,
+        record_type='raster',
+        geometry=geometry_wkt,
+        identifier=records.identifier
+    )
+    session.add(new_record)
+    await session.commit()
+    await deduct_credits(session, user.id, storage=asset_size, params={'identifier': records.identifier,'record_type': 'raster'})
+    
+    return {"message": str(new_record.id)}
+    # except Exception as e:
+    #     await session.rollback()
+    #     raise HTTPException(status_code=500, detail=str(e))
